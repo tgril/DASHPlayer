@@ -3,7 +3,8 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/DASHPlayer.iml" filepath="$PROJECT_DIR$/DASHPlayer.iml" />
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/demoapp/demoapp.iml" filepath="$PROJECT_DIR$/demoapp/demoapp.iml" />
+      <module fileurl="file://$PROJECT_DIR$/wrapper/wrapper.iml" filepath="$PROJECT_DIR$/wrapper/wrapper.iml" />
     </modules>
   </component>
 </project>
