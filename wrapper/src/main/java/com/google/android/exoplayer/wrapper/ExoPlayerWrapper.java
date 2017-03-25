@@ -70,45 +70,11 @@ public class ExoPlayerWrapper implements ExoPlayer.EventListener {
 
     public SimpleExoPlayer player;
     private static final DefaultBandwidthMeter BANDWIDTH_METER = new DefaultBandwidthMeter();
-
-
-    private Handler mainHandler;
-    private DataSource.Factory mediaDataSourceFactory;
     private DefaultTrackSelector trackSelector;
 
     public ExoPlayerWrapper(Context context) {
         this.context = context;
-
-        mediaDataSourceFactory = buildDataSourceFactory(BANDWIDTH_METER);
-        mainHandler = new Handler();
-
-        userAgent = Util.getUserAgent(context, "ExoPlayerWrapper");
-
-        initializePlayer();
     }
-
-    private void initializePlayer() {
-        TrackSelection.Factory videoTrackSelectionFactory =
-                new AdaptiveTrackSelection.Factory(BANDWIDTH_METER);
-        trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
-        player = ExoPlayerFactory.newSimpleInstance(this.context, trackSelector, new DefaultLoadControl());
-        //player.addListener(this.context);
-
-        Uri uri = Uri.parse("http://www.youtube.com/api/manifest/dash/id/bf5bb2419360daf1/source/youtube?as=fmp4_audio_clear,fmp4_sd_hd_clear&sparams=ip,ipbits,expire,source,id,as&ip=0.0.0.0&ipbits=0&expire=19000000000&signature=51AF5F39AB0CEC3E5497CD9C900EBFEAECCCB5C7.8506521BFC350652163895D4C26DEE124209AA9E&key=ik0");
-        //Uri uri = Uri.parse("http://46.23.86.207/video/smurfs/smurfs.ism/smurfs.mpd");
-        //Uri uri = Uri.parse("http://html5demos.com/assets/dizzy.mp4");
-
-        // Measures bandwidth during playback. Can be null if not required.
-        DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-
-        DataSource.Factory dataSourceFactory = buildDataSourceFactory(bandwidthMeter);
-        MediaSource videoSource = new DashMediaSource(uri, buildDataSourceFactory(null),
-                new DefaultDashChunkSource.Factory(dataSourceFactory), null, null);
-        player.setPlayWhenReady(true);
-        player.prepare(videoSource);
-    }
-
-    protected String userAgent;
 
     public DataSource.Factory buildDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
         return new DefaultDataSourceFactory(this.context, bandwidthMeter,
@@ -116,18 +82,32 @@ public class ExoPlayerWrapper implements ExoPlayer.EventListener {
     }
 
     public HttpDataSource.Factory buildHttpDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
-        return new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter);
+        return new DefaultHttpDataSourceFactory("ExoPlayerWrapper", bandwidthMeter);
     }
 
-    public void openUri() {
+    public void openUri(Uri uri) {
+        TrackSelection.Factory videoTrackSelectionFactory =
+                new AdaptiveTrackSelection.Factory(BANDWIDTH_METER);
+        trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
+        player = ExoPlayerFactory.newSimpleInstance(this.context, trackSelector, new DefaultLoadControl());
+        player.addListener(this);
 
+
+        // Measures bandwidth during playback. Can be null if not required.
+        DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
+
+        DataSource.Factory dataSourceFactory = buildDataSourceFactory(bandwidthMeter);
+        MediaSource videoSource = new DashMediaSource(uri, buildDataSourceFactory(null),
+                new DefaultDashChunkSource.Factory(dataSourceFactory), null, null);
+
+        player.prepare(videoSource);
     }
 
     public void play() {
         player.setPlayWhenReady(true);
     }
 
-    public void pause() {
+    public void stop() {
         player.stop();
     }
 }
