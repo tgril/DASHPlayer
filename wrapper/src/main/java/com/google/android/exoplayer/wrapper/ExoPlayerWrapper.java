@@ -109,5 +109,6 @@ public class ExoPlayerWrapper implements ExoPlayer.EventListener {
 
     public void stop() {
         player.stop();
+        player.release();
     }
 }
