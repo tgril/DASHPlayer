@@ -28,7 +28,6 @@ public class PlayerActivity extends Activity {
 
         wrapper = new ExoPlayerWrapper(this);
 
-
         wrapper.openUri(uri);
         wrapper.play();
 
