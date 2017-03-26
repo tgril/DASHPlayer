@@ -32,6 +32,7 @@ import com.google.android.exoplayer2.upstream.HttpDataSource;
 public class ExoPlayerWrapper {
 
     private static final TrackSelection.Factory FIXED_FACTORY = new FixedTrackSelection.Factory();
+    // Measures bandwidth during playback. Can be null if not required.
     private static final DefaultBandwidthMeter BANDWIDTH_METER = new DefaultBandwidthMeter();
 
     private MappingTrackSelector.SelectionOverride override;
@@ -64,28 +65,30 @@ public class ExoPlayerWrapper {
         }
     }
 
+    // return list of track groups inside stream
     public TrackGroupArray getTrackGroups() {
         return trackSelector.getCurrentMappedTrackInfo().getTrackGroups(getVideoRendererIndex());
     }
 
-    public void openUri(Uri uri) {
+    // open stream and seek it if requested
+    public void openUri(Uri uri, Integer resumeWindow, long resumePosition) {
+        // use adaptive streaming
         TrackSelection.Factory videoTrackSelectionFactory =
                 new AdaptiveTrackSelection.Factory(BANDWIDTH_METER);
         trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
         player = ExoPlayerFactory.newSimpleInstance(context, trackSelector, new DefaultLoadControl());
 
-
-        // Measures bandwidth during playback. Can be null if not required.
-        DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-
-        DataSource.Factory dataSourceFactory = buildDataSourceFactory(bandwidthMeter);
+        // prepare DASH stream without encryption
+        DataSource.Factory dataSourceFactory = buildDataSourceFactory(BANDWIDTH_METER);
         MediaSource videoSource = new DashMediaSource(uri, buildDataSourceFactory(null),
                 new DefaultDashChunkSource.Factory(dataSourceFactory), null, null);
+
+        // repeat stream indefinitely
         LoopingMediaSource loopingSource = new LoopingMediaSource(videoSource);
 
-        player.prepare(loopingSource);
-
-
+        if (resumeWindow != C.INDEX_UNSET)
+            player.seekTo(resumeWindow, resumePosition);
+        player.prepare(loopingSource, resumeWindow == C.INDEX_UNSET, false );
     }
 
     public void play() {
@@ -93,13 +96,8 @@ public class ExoPlayerWrapper {
     }
 
     public void stop() {
-        player.stop();
         player.release();
-        try {
-            this.finalize();
-        } catch (Throwable throwable) {
-            throwable.printStackTrace();
-        }
+        player.stop();
     }
 
 
@@ -111,6 +109,7 @@ public class ExoPlayerWrapper {
         return new DefaultHttpDataSourceFactory("ExoPlayerWrapper", bandwidthMeter);
     }
 
+    // find video renderer
     private int getVideoRendererIndex() {
         for (int i = 0; i < player.getRendererCount(); i++) {
             if (player.getRendererType(i) == C.TRACK_TYPE_VIDEO) {

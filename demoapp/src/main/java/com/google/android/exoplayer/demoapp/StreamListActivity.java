@@ -25,6 +25,7 @@ public class StreamListActivity extends Activity {
 
         ArrayAdapter adapter = new ArrayAdapter<String>(this, R.layout.activity_listview, streams);
 
+        // fill list with sample streams
         listView = (ListView) findViewById(R.id.list);
         listView.setAdapter(adapter);
 
@@ -32,6 +33,7 @@ public class StreamListActivity extends Activity {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String itemValue = (String)listView.getItemAtPosition(position);
+                // pass URL to Player
                 startActivity(buildIntent(getApplicationContext(), itemValue));
             }
         });

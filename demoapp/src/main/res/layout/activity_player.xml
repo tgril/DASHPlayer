@@ -24,8 +24,6 @@
         android:textSize="10sp"
         tools:ignore="SmallSp"/>
 
-
-
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

@@ -2,25 +2,24 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <Button
-        android:id="@id/change_bitrate"
+    <Button android:id="@id/change_bitrate"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Change bitrate"
-        android:layout_gravity="bottom|right"/>
+        android:layout_gravity="bottom|right" />
 
     <ImageButton android:id="@id/exo_play"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_gravity="center"
         android:background="#CC000000"
-        style="@style/ExoMediaButton.Play"/>
+        style="@style/ExoMediaButton.Play" />
 
     <ImageButton android:id="@id/exo_pause"
         android:layout_width="100dp"
         android:layout_height="100dp"
         android:layout_gravity="center"
         android:background="#CC000000"
-        style="@style/ExoMediaButton.Pause"/>
+        style="@style/ExoMediaButton.Pause" />
 
 </FrameLayout>

@@ -14,6 +14,7 @@ import android.widget.Button;
 import android.widget.CheckedTextView;
 import android.widget.TextView;
 import com.google.android.exoplayer.wrapper.ExoPlayerWrapper;
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Format;
 import com.google.android.exoplayer2.source.TrackGroup;
 import com.google.android.exoplayer2.ui.DebugTextViewHelper;
@@ -21,64 +22,92 @@ import com.google.android.exoplayer2.ui.SimpleExoPlayerView;
 
 import java.util.Locale;
 
-public class PlayerActivity extends Activity implements View.OnClickListener,
-        DialogInterface.OnClickListener {
+public class PlayerActivity extends Activity implements View.OnClickListener, DialogInterface.OnClickListener {
 
     private ExoPlayerWrapper playerWrapper;
+
+    // customized ExoPlayer library view
     private SimpleExoPlayerView simpleExoPlayerView;
+
+    // ExoPlayer default logger of content info
     private TextView debugTextView;
     private DebugTextViewHelper debugViewHelper;
 
+    // bitrate selection dialog objects
     private CheckedTextView defaultView;
     private CheckedTextView[][] trackViews;
     private Integer groupIndex = null;
     private Integer trackIndex = null;
 
+    // playback resume objects
+    private int resumeWindow;
+    private long resumePosition;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setContentView(R.layout.activity_player);
+
+        Button btnChangeBitrate = (Button) findViewById(R.id.change_bitrate);
+        // assign listener to button for changing profile
+        btnChangeBitrate.setOnClickListener(this);
+
+        debugTextView = (TextView) findViewById(R.id.debug_text_view);
+
+        simpleExoPlayerView = (SimpleExoPlayerView) findViewById(R.id.player_view);
+        simpleExoPlayerView.requestFocus();
+    }
+
+    private void updateResumePosition() {
+        resumeWindow = playerWrapper.getPlayer().getCurrentWindowIndex();
+        resumePosition = playerWrapper.getPlayer().isCurrentWindowSeekable() ? Math.max(0, playerWrapper.getPlayer().getCurrentPosition()) : C.TIME_UNSET;
+    }
+
+    private void initializePlayer() {
         Bundle extras = getIntent().getExtras();
         String url = extras.getString("uri");
         Uri uri = Uri.parse(url);
 
-        setContentView(R.layout.activity_player);
-
-        Button btnChangeBitrate = (Button) findViewById(R.id.change_bitrate);
-        btnChangeBitrate.setOnClickListener(this);
-
-        debugTextView = (TextView) findViewById(R.id.debug_text_view);
-        simpleExoPlayerView = (SimpleExoPlayerView) findViewById(R.id.player_view);
-
-        simpleExoPlayerView.requestFocus();
-
+        // custom implementation based on SimpleExoPlayer
         playerWrapper = new ExoPlayerWrapper(this);
 
-        playerWrapper.openUri(uri);
+        playerWrapper.openUri(uri, resumeWindow, resumePosition);
         playerWrapper.play();
 
+        // assign player to layout
         simpleExoPlayerView.setPlayer(playerWrapper.getPlayer());
 
+        // show stream info on top of the screen (use ExoPlayer library component)
         debugViewHelper = new DebugTextViewHelper(playerWrapper.getPlayer(), debugTextView);
         debugViewHelper.start();
+    }
+
+    private void releasePlayer() {
+        if (playerWrapper != null) {
+            debugViewHelper.stop();
+            debugViewHelper = null;
+            updateResumePosition();
+            playerWrapper.getPlayer().release();
+            playerWrapper = null;
+        }
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        initializePlayer();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        playerWrapper.stop();
-        this.finish();
-
+        releasePlayer();
     }
 
 
 
-    /**
-     * Shows the selection dialog for a given renderer.
-     *
-     * @param activity The parent activity.
-     * @param title The dialog's title.
-     */
+    // raise dialog for profile selection
     public void showSelectionDialog(Activity activity, CharSequence title) {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
         builder.setTitle(title)
@@ -90,11 +119,13 @@ public class PlayerActivity extends Activity implements View.OnClickListener,
     }
 
 
+    // view builder for dialog
     private View buildView(Context context) {
         LayoutInflater inflater = LayoutInflater.from(context);
         View view = inflater.inflate(R.layout.track_selection_dialog, null);
         ViewGroup root = (ViewGroup) view.findViewById(R.id.root);
 
+        // option for adaptive streaming (one element)
         defaultView = (CheckedTextView) inflater.inflate(android.R.layout.simple_list_item_single_choice, root, false);
         defaultView.setText("Adaptive");
         defaultView.setFocusable(true);
@@ -104,6 +135,8 @@ public class PlayerActivity extends Activity implements View.OnClickListener,
 
         int length = playerWrapper.getTrackGroups().length;
         trackViews = new CheckedTextView[length][];
+
+        // iterate through all track groups and tracks and create one object per group and track
         for (int groupIndex = 0; groupIndex < length; groupIndex++) {
             TrackGroup group = playerWrapper.getTrackGroups().get(groupIndex);
             trackViews[groupIndex] = new CheckedTextView[group.length];
@@ -125,6 +158,7 @@ public class PlayerActivity extends Activity implements View.OnClickListener,
             }
         }
 
+        // global variables containg dialog selection
         if (groupIndex != null && trackIndex != null)
             trackViews[groupIndex][trackIndex].setChecked(true);
         else
@@ -136,21 +170,25 @@ public class PlayerActivity extends Activity implements View.OnClickListener,
     // DialogInterface.OnClickListener
     @Override
     public void onClick(DialogInterface dialog, int which) {
+        // start playback of new track/s
         playerWrapper.applyTrackSelection(this.groupIndex, this.trackIndex);
     }
 
     // View.OnClickListener
     @Override
     public void onClick(View view) {
+        // pressed button for changing bitrate
         if (view.getId() == R.id.change_bitrate) {
             showSelectionDialog(this, ((Button) view).getText());
         } else {
             resetSelection();
+            // tapped on first item in list (adaptive streaming)
             if (view == defaultView) {
                 groupIndex = null;
                 trackIndex = null;
                 defaultView.setChecked(true);
             } else {
+                // tapped on any other item in the list (single profile)
                 Pair<Integer, Integer> tag = (Pair<Integer, Integer>) view.getTag();
                 groupIndex = tag.first;
                 trackIndex = tag.second;
@@ -160,7 +198,7 @@ public class PlayerActivity extends Activity implements View.OnClickListener,
     }
 
 
-
+    // clear selection of each list element
     private void resetSelection() {
         defaultView.setChecked(false);
         for (int i = 0; i < trackViews.length; i++) {

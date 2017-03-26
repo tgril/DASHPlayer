@@ -6,18 +6,14 @@
     android:paddingRight="16dp"
     android:orientation="vertical" >
 
-    <TextView
-        android:layout_width="match_parent"
+    <TextView android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tap on list item to start playback:"
         android:textSize="16dip"
-        android:textStyle="bold"
-        />
+        android:textStyle="bold" />
 
-    <ListView
-        android:id="@+id/list"
+    <ListView android:id="@+id/list"
         android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </ListView>
+        android:layout_width="match_parent" />
 
 </LinearLayout>
