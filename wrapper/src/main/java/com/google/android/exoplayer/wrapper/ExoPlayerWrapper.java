@@ -2,28 +2,26 @@ package com.google.android.exoplayer.wrapper;
 
 import android.content.Context;
 import android.net.Uri;
-import android.os.Handler;
 
+import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultLoadControl;
-import com.google.android.exoplayer2.ExoPlaybackException;
-import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.source.LoopingMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
+import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
 import com.google.android.exoplayer2.upstream.HttpDataSource;
-import com.google.android.exoplayer2.util.Util;
 
 
 /**
@@ -31,66 +29,50 @@ import com.google.android.exoplayer2.util.Util;
  */
 
 
-public class ExoPlayerWrapper implements ExoPlayer.EventListener {
-    @Override
-    public void onTimelineChanged(Timeline timeline, Object manifest) {
+public class ExoPlayerWrapper {
 
-        int i = 0;
-        i = i+1;
-    }
-
-    @Override
-    public void onPlayerError(ExoPlaybackException e) {
-        int i = 0;
-        i = i+1;
-    }
-
-    @Override
-    public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
-        int i = 0;
-        i = i+1;
-    }
-    @Override
-    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
-        int i = 0;
-        i = i+1;
-    }
-    @Override
-    public void onLoadingChanged(boolean isLoading) {
-        int i = 0;
-        i = i+1;
-    }
-
-    @Override
-    public void onPositionDiscontinuity() {
-
-    }
-
-    Context context;
-
-    public SimpleExoPlayer player;
+    private static final TrackSelection.Factory FIXED_FACTORY = new FixedTrackSelection.Factory();
     private static final DefaultBandwidthMeter BANDWIDTH_METER = new DefaultBandwidthMeter();
+
+    private MappingTrackSelector.SelectionOverride override;
     private DefaultTrackSelector trackSelector;
+
+    private Context context;
+    private SimpleExoPlayer player;
+
 
     public ExoPlayerWrapper(Context context) {
         this.context = context;
     }
 
-    public DataSource.Factory buildDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
-        return new DefaultDataSourceFactory(this.context, bandwidthMeter,
-                buildHttpDataSourceFactory(bandwidthMeter));
+    public SimpleExoPlayer getPlayer() {
+        return this.player;
     }
 
-    public HttpDataSource.Factory buildHttpDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
-        return new DefaultHttpDataSourceFactory("ExoPlayerWrapper", bandwidthMeter);
+    public void applyTrackSelection(Integer groupIndex, Integer trackIndex) {
+        if (groupIndex == null || trackIndex == null) {
+            override = null;
+        } else  {
+            override = new MappingTrackSelector.SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex);
+        }
+
+        int rendererIndex = getVideoRendererIndex();
+        if (override != null) {
+            trackSelector.setSelectionOverride(rendererIndex, trackSelector.getCurrentMappedTrackInfo().getTrackGroups(rendererIndex), override);
+        } else {
+            trackSelector.clearSelectionOverrides(getVideoRendererIndex());
+        }
+    }
+
+    public TrackGroupArray getTrackGroups() {
+        return trackSelector.getCurrentMappedTrackInfo().getTrackGroups(getVideoRendererIndex());
     }
 
     public void openUri(Uri uri) {
         TrackSelection.Factory videoTrackSelectionFactory =
                 new AdaptiveTrackSelection.Factory(BANDWIDTH_METER);
         trackSelector = new DefaultTrackSelector(videoTrackSelectionFactory);
-        player = ExoPlayerFactory.newSimpleInstance(this.context, trackSelector, new DefaultLoadControl());
-        player.addListener(this);
+        player = ExoPlayerFactory.newSimpleInstance(context, trackSelector, new DefaultLoadControl());
 
 
         // Measures bandwidth during playback. Can be null if not required.
@@ -99,8 +81,11 @@ public class ExoPlayerWrapper implements ExoPlayer.EventListener {
         DataSource.Factory dataSourceFactory = buildDataSourceFactory(bandwidthMeter);
         MediaSource videoSource = new DashMediaSource(uri, buildDataSourceFactory(null),
                 new DefaultDashChunkSource.Factory(dataSourceFactory), null, null);
+        LoopingMediaSource loopingSource = new LoopingMediaSource(videoSource);
 
-        player.prepare(videoSource);
+        player.prepare(loopingSource);
+
+
     }
 
     public void play() {
@@ -110,5 +95,28 @@ public class ExoPlayerWrapper implements ExoPlayer.EventListener {
     public void stop() {
         player.stop();
         player.release();
+        try {
+            this.finalize();
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+    }
+
+
+    private DataSource.Factory buildDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
+        return new DefaultDataSourceFactory(context, bandwidthMeter, buildHttpDataSourceFactory(bandwidthMeter));
+    }
+
+    private HttpDataSource.Factory buildHttpDataSourceFactory(DefaultBandwidthMeter bandwidthMeter) {
+        return new DefaultHttpDataSourceFactory("ExoPlayerWrapper", bandwidthMeter);
+    }
+
+    private int getVideoRendererIndex() {
+        for (int i = 0; i < player.getRendererCount(); i++) {
+            if (player.getRendererType(i) == C.TRACK_TYPE_VIDEO) {
+                return i;
+            }
+        }
+        return 0;
     }
 }
